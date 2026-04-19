@@ -1,52 +1,206 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useRef, useState } from 'react';
+import Konva from 'konva';
+import { Stage, Layer, Image, Rect } from 'react-konva';
+import { canvasHeight, canvasWidth, clamp, colorToNumber, numberToColor } from '@/lib/utils';
+import { supabase } from '@/lib/supabase.client';
+import { Database } from '@/lib/supabase.types';
+import { toast, ToastContainer } from 'react-toastify';
 
 export default function Home() {
-	return (
-		<div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-			<main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-				<Image className="dark:invert" src="/next.svg" alt="Next.js logo" width={180} height={38} priority />
-				<ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-					<li className="mb-2 tracking-[-.01em]">
-						Get started by editing{" "}
-						<code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-							src/app/page.tsx
-						</code>
-						.
-					</li>
-					<li className="tracking-[-.01em]">Save and see your changes instantly.</li>
-				</ol>
+	const [size, setSize] = useState({ width: 0, height: 0 });
+	const [canvas, setCanvas] = useState<OffscreenCanvas | null>(null);
+	const stageRef = useRef<Konva.Stage>(null);
+	const layerRef = useRef<Konva.Layer>(null);
+	const cursorRef = useRef<Konva.Rect>(null);
+	const colorRef = useRef<HTMLInputElement>(null);
 
-				<div className="flex gap-4 items-center flex-col sm:flex-row">
-					<a
-						className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-						href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-						target="_blank"
-						rel="noopener noreferrer"
-					>
-						Read our docs
-					</a>
-				</div>
-			</main>
-			<footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-				<a
-					className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-					href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-					target="_blank"
-					rel="noopener noreferrer"
-				>
-					<Image aria-hidden src="/file.svg" alt="File icon" width={16} height={16} />
-					Learn
-				</a>
-				<a
-					className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-					href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-					target="_blank"
-					rel="noopener noreferrer"
-				>
-					<Image aria-hidden src="/globe.svg" alt="Globe icon" width={16} height={16} />
-					Go to nextjs.org →
-				</a>
-			</footer>
-		</div>
+	useEffect(() => {
+		const updateSize = () => {
+			const headerHeight = document.getElementById("header")?.offsetHeight ?? 0;
+			setSize({
+				width: window.innerWidth,
+				height: window.innerHeight - headerHeight,
+			});
+		};
+
+		updateSize();
+		let ctx: OffscreenCanvasRenderingContext2D | null;
+		if (canvas) {
+			ctx = canvas.getContext("2d");
+		} else {
+			const canvas = new OffscreenCanvas(canvasWidth, canvasHeight);
+			ctx = canvas.getContext("2d");
+			if (ctx) {
+				ctx.fillStyle = "white";
+				ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+				supabase
+					.from("pixel")
+					.select()
+					.limit(canvasWidth * canvasHeight)
+					.then(result => {
+						if (!(result.data && ctx)) return;
+						for (const i of result.data) {
+							ctx.fillStyle = numberToColor(i.color);
+							ctx.fillRect(i.x, i.y, 1, 1);
+						}
+						setCanvas(canvas);
+					})
+			}
+		}
+		window.addEventListener('resize', updateSize);
+
+		const channel = supabase
+			.channel("pixel")
+			.on<Database["public"]["Tables"]["pixel"]["Row"]>(
+				"postgres_changes",
+				{ event: "*", schema: "public", table: "pixel" },
+				payload => {
+					if (!ctx) return;
+					if (payload.eventType == "DELETE") return;
+					const pixel = payload.new;
+					ctx.fillStyle = numberToColor(pixel.color);
+					ctx.fillRect(pixel.x, pixel.y, 1, 1);
+				}
+			)
+			.subscribe()
+
+		return () => {
+			window.removeEventListener('resize', updateSize);
+			channel.unsubscribe();
+		}
+	}, []);
+
+	const ctx = canvas?.getContext("2d");
+
+	function handleWheel(e: Konva.KonvaEventObject<WheelEvent>) {
+		e.evt.preventDefault();
+
+		const stage = stageRef.current;
+		if (!stage) return;
+		const oldScale = stage.scaleX();
+		const pointer = stage.getPointerPosition();
+		if (!pointer) return;
+
+		const mousePointTo = {
+			x: (pointer.x - stage.x()) / oldScale,
+			y: (pointer.y - stage.y()) / oldScale,
+		};
+
+		// how to scale? Zoom in? Or zoom out?
+		const delta = e.evt.deltaY;
+		let direction = delta > 0 ? 1 : -1;
+
+		// when we zoom on trackpad, e.evt.ctrlKey is true
+		// in that case lets revert direction
+		if (e.evt.ctrlKey) {
+			direction = -direction;
+		}
+
+		const scaleBy = 1.01 ** (Math.abs(delta) / 50);
+		const newScale = clamp(
+			direction > 0 ? oldScale * scaleBy : oldScale / scaleBy,
+			0.1,
+			100,
+		)
+
+		stage.scale({ x: newScale, y: newScale });
+
+		const newPos = {
+			x: pointer.x - mousePointTo.x * newScale,
+			y: pointer.y - mousePointTo.y * newScale,
+		};
+		stage.position(newPos);
+	}
+
+	async function handleClick() {
+		const stage = stageRef.current;
+		const layer = layerRef.current;
+		const color = colorRef.current?.value;
+		if (!(ctx && stage && layer && color)) return;
+		const pointer = stage.getRelativePointerPosition();
+		if (!pointer) return;
+		const pos = {
+			x: Math.floor(pointer.x),
+			y: Math.floor(pointer.y),
+		}
+		const response = await fetch("/api/place", {
+			method: "POST",
+			body: JSON.stringify({
+				...pos,
+				color: colorToNumber(color),
+			}),
+		});
+		if (response.status != 200) {
+			const data = await response.json() as { message: string };
+			toast(data.message);
+			return;
+		}
+		ctx.fillStyle = color;
+		ctx.fillRect(pos.x, pos.y, 1, 1);
+		layer.batchDraw();
+	}
+
+	function handleMouseMove() {
+		const stage = stageRef.current;
+		const layer = layerRef.current;
+		const cursor = cursorRef.current;
+		if (!(ctx && stage && layer && cursor)) return;
+		const pointer = stage.getRelativePointerPosition();
+		if (!pointer) return;
+		const pos = {
+			x: Math.floor(pointer.x),
+			y: Math.floor(pointer.y),
+		}
+		if (pos.x < 0 || pos.y < 0 || pos.x >= canvasWidth || pos.y >= canvasWidth) return;
+		cursor.position(pos);
+	}
+
+	return (
+		<>
+			<Stage
+				width={size.width}
+				height={size.height}
+				onWheel={handleWheel}
+				onClick={handleClick}
+				onMouseMove={handleMouseMove}
+				onDragEnd={handleMouseMove}
+				ref={stageRef}
+				draggable
+			>
+				<Layer imageSmoothingEnabled={false} ref={layerRef}>
+					{ canvas &&
+						<Image
+							x={0}
+							y={0}
+							width={canvasWidth}
+							height={canvasHeight}
+							image={canvas}
+						/>
+					}
+					<Rect
+						width={1}
+						height={1}
+						ref={cursorRef}
+						stroke="white"
+						strokeWidth={0.1}
+						fillEnabled={false}
+						globalCompositeOperation="difference"
+					/>
+				</Layer>
+			</Stage>
+			<ToastContainer position="bottom-right" />
+			<input
+				type="color"
+				ref={colorRef}
+				defaultValue="black"
+				style={{
+					position: "absolute",
+					bottom: 20,
+					left: 20,
+				}}
+			/>
+		</>
 	);
 }

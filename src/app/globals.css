@@ -3,6 +3,7 @@
 :root {
 	--background: #ffffff;
 	--foreground: #171717;
+	--middle: #c0c0c0;
 }
 
 @theme inline {
@@ -16,6 +17,7 @@
 	:root {
 		--background: #0a0a0a;
 		--foreground: #ededed;
+		--middle: #303030;
 	}
 }
 
@@ -23,4 +25,42 @@ body {
 	background: var(--background);
 	color: var(--foreground);
 	font-family: Arial, Helvetica, sans-serif;
+}
+
+.button {
+	display: inline-block;
+	height: 3rem;
+	font-weight: 500;
+	min-width: 158px;
+	outline: 1px solid var(--middle);
+	border-radius: 500px;
+	cursor: pointer;
+	transition: background-color 0.15s;
+}
+
+.button:hover {
+	background-color: var(--middle);
+}
+
+input[type="color"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 60px;
+  height: 60px;
+  border: none;
+  box-shadow: 0 0 5;
+  border-radius: 50%;
+  cursor: pointer;
+  padding: 0;
+  overflow: hidden;
+}
+
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+  border-radius: 50%;
+}
+
+input[type="color"]::-webkit-color-swatch, input[type="color"]::-moz-color-swatch {
+  border: none;
+  border-radius: 50%;
 }
