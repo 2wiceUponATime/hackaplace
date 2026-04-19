@@ -19,6 +19,14 @@
 		"binding": "ASSETS",
 		"directory": ".open-next/assets"
 	},
+	"vars": {
+		"BETTER_AUTH_DB_URL": "postgresql://postgres.awyyrdorarokodzdysce:cye4vqb9ruz-kbn6JMW@aws-1-us-east-1.pooler.supabase.com:5432/postgres",
+		"BETTER_AUTH_URL": "https://hackaplace.2wiceuponatime.workers.dev",
+		"HACK_CLUB_CLIENT_ID": "8bc986cc587522ac1af7a41e9d7c7375",
+		"NEXT_PUBLIC_SUPABASE_URL": "https://awyyrdorarokodzdysce.supabase.co",
+		"NEXT_PUBLIC_SUPABASE_KEY": "sb_publishable_tYAHgKLDM4LMG3HGql2b8Q_Iz7kt7bi",
+	},
+	"preview_urls": true,
 	"images": {
 		// Enable image optimization
 		// see https://opennext.js.org/cloudflare/howtos/image

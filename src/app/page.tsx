@@ -132,6 +132,10 @@ export default function Home() {
 				color: colorToNumber(color),
 			}),
 		});
+		if (response.status == 500) {
+			toast("Internal server error");
+			return;
+		}
 		if (response.status != 200) {
 			const data = await response.json() as { message: string };
 			toast(data.message);

@@ -14,12 +14,12 @@
 		"supabase-typegen": "pnpx supabase gen types typescript --schema public > src/lib/supabase.types.ts"
 	},
 	"dependencies": {
+		"@neondatabase/serverless": "^1.1.0",
 		"@opennextjs/cloudflare": "^1.17.1",
 		"@supabase/supabase-js": "^2.103.3",
 		"better-auth": "^1.6.5",
 		"konva": "^10.2.5",
 		"next": "16.1.5",
-		"pg": "^8.20.0",
 		"react": "^19.1.6",
 		"react-konva": "^19.0.10",
 		"react-toastify": "^11.0.5",

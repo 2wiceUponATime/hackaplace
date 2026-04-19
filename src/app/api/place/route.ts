@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { auth } from "@/lib/auth";
+import { getAuth } from "@/lib/auth";
 import { canvasHeight, canvasWidth, cooldown, createJSONResponse } from "@/lib/utils";
 import z from "zod";
 
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
             .upsert(data);
     }
     const requestTime = new Date();
-    const session = await auth.api.getSession({ headers: req.headers });
+    const session = await getAuth().api.getSession({ headers: req.headers });
     if (!session) {
         return createJSONResponse({ message: "Not logged in" }, 401);
     }
