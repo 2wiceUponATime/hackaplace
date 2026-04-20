@@ -1,6 +1,6 @@
-import { supabase } from "@/lib/supabase";
 import { getAuth } from "@/lib/auth";
-import { canvasHeight, canvasWidth, cooldown, createJSONResponse } from "@/lib/utils";
+import { createServerClient } from "@/lib/supabase";
+import { canvasHeight, canvasWidth, cooldown, createJSONResponse, env } from "@/lib/utils";
 import z from "zod";
 
 const schema = z.object({
@@ -10,6 +10,7 @@ const schema = z.object({
 });
 
 export async function POST(req: Request) {
+    const supabase = createServerClient(env);
     async function updateDatabase() {
         if (data.color == 0xffffff) {
             await supabase
@@ -31,6 +32,12 @@ export async function POST(req: Request) {
         return createJSONResponse({ message: "Not logged in" }, 401);
     }
     const lastPlaceTime = session.user.lastPlaceTime;
+    await supabase
+        .from("user")
+        .update({
+            lastPlaceTime: requestTime.toISOString(),
+        })
+        .eq("id", session.user.id);
     if (lastPlaceTime && !session.user.unlimitedPlace) {
         const timeSincePlace = requestTime.getTime() - lastPlaceTime.getTime();
         if (timeSincePlace < cooldown) {
@@ -65,12 +72,6 @@ export async function POST(req: Request) {
         }, 400);
     }
     const data = result.data;
-    await supabase
-        .from("user")
-        .update({
-            lastPlaceTime: requestTime.toISOString(),
-        })
-        .eq("id", session.user.id);
     updateDatabase().catch(console.error);
     return new Response();
 }

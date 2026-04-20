@@ -2,6 +2,17 @@ export const canvasWidth = 500;
 export const canvasHeight = 500;
 export const cooldown = 60 * 1000;
 
+export const isCloudflare = navigator.userAgent == "Cloudflare-Workers";
+export const env = isCloudflare ? (await import("cloudflare:workers")).env : process.env;
+export const clientEnv = Object.fromEntries(
+    Object.entries(env).filter(entry => entry[0].startsWith("NEXT_PUBLIC_"))
+) as ClientEnv;
+
+export type Env = Cloudflare.Env | NodeJS.ProcessEnv
+export type ClientEnv = {
+  [K in keyof Env as K extends `NEXT_PUBLIC_${string}` ? K : never]: Env[K];
+};
+
 export function clamp(x: number, min: number, max: number) {
     return Math.max(min, Math.min(max, x));
 }
