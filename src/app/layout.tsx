@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 	description: "r/place but for Hack Club",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
 	children,
 }: Readonly<{
 	children: React.ReactNode;
@@ -27,10 +27,16 @@ export default function RootLayout({
 		<html lang="en">
 			<head>
 				<link rel="icon" href="/favicon.svg" type="image/svg+xml"></link>
+				<link rel="preconnect" href="https://challenges.cloudflare.com" />
 			</head>
 			<body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
 				<Header />
 				{children}
+				<script
+					src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+					async
+					defer
+				></script>
 			</body>
 		</html>
 	);

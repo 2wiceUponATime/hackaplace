@@ -21,6 +21,7 @@
 		"konva": "^10.2.5",
 		"next": "16.1.5",
 		"react": "^19.1.6",
+		"react-dom": "19.1.6",
 		"react-konva": "^19.0.10",
 		"react-toastify": "^11.0.5",
 		"zod": "^4.3.6"
@@ -28,6 +29,7 @@
 	"devDependencies": {
 		"@eslint/eslintrc": "^3",
 		"@tailwindcss/postcss": "^4",
+		"@types/cloudflare-turnstile": "^0.2.2",
 		"@types/node": "^20",
 		"@types/pg": "^8.20.0",
 		"@types/react": "^19.1.17",

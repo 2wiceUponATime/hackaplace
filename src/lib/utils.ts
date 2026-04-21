@@ -27,7 +27,65 @@ export function createJSONResponse(data: any, status?: number): Response;
 export function createJSONResponse(data: any, init: ResponseInit): Response;
 export function createJSONResponse(data: any, init: ResponseInit | number = 200) {
     if (typeof init == "number") {
-        init = { status: init }
+        init = { status: init };
     }
+    console.log(data);
     return new Response(JSON.stringify(data), init);
+}
+
+export type Point = { x: number, y: number }
+
+export function getDistance(p1: Point, p2: Point) {
+  return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+}
+
+export function getCenter(p1: Point, p2: Point): Point {
+  return {
+    x: (p1.x + p2.x) / 2,
+    y: (p1.y + p2.y) / 2,
+  };
+}
+
+export interface TurnstileResponse {
+  success: boolean;
+  challenge_ts?: string;
+  hostname: string;
+  'error-codes'?: TurnstileErrorCode[];
+  action?: string;
+  cdata?: string;
+  'metadata.ephemeral_id'?: string;
+}
+
+export type TurnstileErrorCode = 
+  | 'missing-input-secret'
+  | 'invalid-input-secret'
+  | 'missing-input-response'
+  | 'invalid-input-response'
+  | 'bad-request'
+  | 'timeout-or-duplicate'
+  | 'internal-error';
+
+export async function validateTurnstile(token: string, remoteip: string) {
+  try {
+    const response = await fetch(
+      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          secret: process.env.TURNSTILE_SECRET_KEY,
+          response: token,
+          remoteip,
+        }),
+      },
+    );
+
+    const result = await response.json() as TurnstileResponse;
+    return result;
+  } catch (error) {
+    console.error("Turnstile validation error:", error);
+    return { success: false, "error-codes": ["internal-error"] } as TurnstileResponse;
+  }
 }

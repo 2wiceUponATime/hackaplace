@@ -23,6 +23,7 @@
 		},
 		"types": [
 			"./cloudflare-env.d.ts",
+			"cloudflare-turnstile",
 			"node"
 		]
 	},

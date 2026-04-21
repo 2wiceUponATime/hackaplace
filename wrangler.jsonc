@@ -26,6 +26,7 @@
 		"HACK_CLUB_CLIENT_ID": "8bc986cc587522ac1af7a41e9d7c7375",
 		"NEXT_PUBLIC_SUPABASE_URL": "https://awyyrdorarokodzdysce.supabase.co",
 		"NEXT_PUBLIC_SUPABASE_KEY": "sb_publishable_tYAHgKLDM4LMG3HGql2b8Q_Iz7kt7bi",
+		"NEXT_PUBLIC_TURNSTILE_SITE_KEY": "0x4AAAAAADAi4Ik7D9cjwELS",
 	},
 	"preview_urls": true,
 	"images": {

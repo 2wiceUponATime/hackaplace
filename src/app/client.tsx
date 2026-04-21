@@ -3,19 +3,52 @@
 import { useEffect, useRef, useState } from 'react';
 import Konva from 'konva';
 import { Stage, Layer, Image, Rect } from 'react-konva';
-import { canvasHeight, canvasWidth, clamp, ClientEnv, colorToNumber, numberToColor } from '@/lib/utils';
+import { canvasHeight, canvasWidth, clamp, ClientEnv, colorToNumber, getCenter, getDistance, numberToColor, Point } from '@/lib/utils';
 import { Database } from '@/lib/supabase.types';
 import { toast, ToastContainer } from 'react-toastify';
 import { createBrowserClient } from '@/lib/supabase.client';
 
+Konva.hitOnDragEnabled = true;
+
+declare global {
+	interface Window {
+		turnstile: {
+			render: (el: HTMLElement, options: { sitekey: string; callback: (token: string) => void }) => string;
+			remove: (widgetId: string) => void;
+		};
+	}
+}
+
 export default function Client({ env }: { env: ClientEnv }) {
 	const [size, setSize] = useState({ width: 0, height: 0 });
 	const [canvas, setCanvas] = useState<OffscreenCanvas | null>(null);
-	const [supabaseClient, setSupabaseClient] = useState<ReturnType<typeof createBrowserClient> | null>(null)
+	const [supabaseClient, setSupabaseClient] = useState<ReturnType<typeof createBrowserClient> | null>(null);
+	const [token, setToken] = useState<string | null>(null);
 	const stageRef = useRef<Konva.Stage>(null);
 	const layerRef = useRef<Konva.Layer>(null);
 	const cursorRef = useRef<Konva.Rect>(null);
 	const colorRef = useRef<HTMLInputElement>(null);
+	const turnstileRef = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		const el = turnstileRef.current;
+		if (!el) return;
+		let widgetId: string | undefined;
+		const render = () => {
+			widgetId = window.turnstile.render(el, {
+				sitekey: env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!,
+				callback: (token: string) => setToken(token),
+			});
+		};
+		if (typeof window.turnstile !== "undefined") {
+			render();
+		} else {
+			const script = document.querySelector<HTMLScriptElement>('script[src*="turnstile"]');
+			script?.addEventListener("load", render);
+			return () => script?.removeEventListener("load", render);
+		}
+		return () => { if (widgetId) window.turnstile.remove(widgetId); };
+	}, []);
 
 	useEffect(() => {
 		let supabase = supabaseClient;
@@ -137,6 +170,7 @@ export default function Client({ env }: { env: ClientEnv }) {
 			body: JSON.stringify({
 				...pos,
 				color: colorToNumber(color),
+				token,
 			}),
 		});
 		if (response.status == 500) {
@@ -151,6 +185,101 @@ export default function Client({ env }: { env: ClientEnv }) {
 		ctx.fillStyle = color;
 		ctx.fillRect(pos.x, pos.y, 1, 1);
 		layer.batchDraw();
+	}
+	
+	async function handleTap() {
+		const stage = stageRef.current;
+		const cursor = cursorRef.current;
+		if (!(ctx && stage && cursor)) return;
+		const pointer = stage.getRelativePointerPosition();
+		if (!pointer) return;
+		const pos = {
+			x: Math.floor(pointer.x),
+			y: Math.floor(pointer.y),
+		}
+		if (pos.x < 0 || pos.y < 0 || pos.x >= canvasWidth || pos.y >= canvasWidth) return;
+		const cursorPos = cursor.position();
+		if (pos.x == cursorPos.x && pos.y == cursorPos.y) {
+			handleClick();
+		} else {
+			cursor.position(pos);
+		}
+	}
+
+	let lastCenter: Point | null = null;
+	let lastDist = 0;
+	let dragStopped = false;
+
+	function handleTouchMove(e: Konva.KonvaEventObject<TouchEvent>) {
+		e.evt.preventDefault();
+		const touch1 = e.evt.touches[0];
+		const touch2 = e.evt.touches[1];
+
+		const stage = stageRef.current;
+		if (!stage) return;
+
+		// we need to restore dragging, if it was cancelled by multi-touch
+		if (touch1 && !touch2 && !stage.isDragging() && dragStopped) {
+			stage.startDrag();
+			dragStopped = false;
+		}
+
+		if (touch1 && touch2) {
+			// if the stage was under Konva's drag&drop
+			// we need to stop it, and implement our own pan logic with two pointers
+			if (stage.isDragging()) {
+				dragStopped = true;
+				stage.stopDrag();
+			}
+
+			const rect = stage.container().getBoundingClientRect();
+
+			const p1 = {
+				x: touch1.clientX - rect.left,
+				y: touch1.clientY - rect.top,
+			};
+			const p2 = {
+				x: touch2.clientX - rect.left,
+				y: touch2.clientY - rect.top,
+			};
+
+			if (!lastCenter) {
+				lastCenter = getCenter(p1, p2);
+				return;
+			}
+			const newCenter = getCenter(p1, p2);
+
+			const dist = getDistance(p1, p2);
+
+			if (!lastDist) {
+				lastDist = dist;
+			}
+
+			// local coordinates of center point
+			const pointTo = {
+				x: (newCenter.x - stage.x()) / stage.scaleX(),
+				y: (newCenter.y - stage.y()) / stage.scaleX(),
+			};
+
+			const scale = stage.scaleX() * (dist / lastDist);
+
+			stage.scaleX(scale);
+			stage.scaleY(scale);
+
+			// calculate new position of the stage
+			const dx = newCenter.x - lastCenter.x;
+			const dy = newCenter.y - lastCenter.y;
+
+			const newPos = {
+				x: newCenter.x - pointTo.x * scale + dx,
+				y: newCenter.y - pointTo.y * scale + dy,
+			};
+
+			stage.position(newPos);
+
+			lastDist = dist;
+			lastCenter = newCenter;
+		}
 	}
 
 	function handleMouseMove() {
@@ -176,6 +305,12 @@ export default function Client({ env }: { env: ClientEnv }) {
 				onWheel={handleWheel}
 				onClick={handleClick}
 				onMouseMove={handleMouseMove}
+				onTap={handleTap}
+				onTouchMove={handleTouchMove}
+				onTouchEnd={() => {
+					lastDist = 0;
+					lastCenter = null;
+				}}
 				onDragEnd={handleMouseMove}
 				ref={stageRef}
 				draggable
@@ -202,16 +337,14 @@ export default function Client({ env }: { env: ClientEnv }) {
 				</Layer>
 			</Stage>
 			<ToastContainer position="bottom-right" />
-			<input
-				type="color"
-				ref={colorRef}
-				defaultValue="black"
-				style={{
-					position: "absolute",
-					bottom: 20,
-					left: 20,
-				}}
-			/>
+			<div className="absolute bottom-5 left-5">
+				<input
+					type="color"
+					ref={colorRef}
+					defaultValue="black"
+				/>
+				<div ref={turnstileRef} className="mt-3" />
+			</div>
 		</>
 	);
 }
