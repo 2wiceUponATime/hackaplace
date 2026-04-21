@@ -1,8 +1,8 @@
 "use server";
 
 import { clientEnv } from "@/lib/utils";
-import ClientWrapper from "./client-wrapper";
+import Client from "./client";
 
 export default async function Home() {
-    return <ClientWrapper env={clientEnv} />;
+    return <Client env={clientEnv} />;
 }
