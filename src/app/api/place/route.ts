@@ -1,6 +1,6 @@
 import { getAuth } from "@/lib/auth";
 import { createServerClient } from "@/lib/supabase";
-import { canvasHeight, canvasWidth, cooldown, createJSONResponse, env } from "@/lib/utils";
+import { canvasHeight, canvasWidth, cooldown, createJSONResponse } from "@/lib/utils";
 import z from "zod";
 
 const schema = z.object({
@@ -10,7 +10,7 @@ const schema = z.object({
 });
 
 export async function POST(req: Request) {
-    const supabase = createServerClient(env);
+    const supabase = createServerClient();
     async function updateDatabase() {
         if (data.color == 0xffffff) {
             await supabase
