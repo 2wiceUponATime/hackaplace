@@ -1,6 +1,7 @@
 import { getAuth } from "@/lib/auth";
 import { createServerClient } from "@/lib/supabase";
 import { canvasHeight, canvasWidth, cooldown, createJSONResponse } from "@/lib/utils";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { JsonWebTokenError, JwtPayload, verify } from "jsonwebtoken";
 import z from "zod";
 
@@ -92,6 +93,7 @@ export async function POST(req: Request) {
     console.log(data);
     const sessionError = await sessionPromise;
     if (sessionError) return sessionError;
-    updateDatabase().catch(console.error);
+    const { ctx } = getCloudflareContext();
+    ctx.waitUntil(updateDatabase());
     return new Response();
 }
