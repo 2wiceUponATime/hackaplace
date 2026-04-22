@@ -1,6 +1,7 @@
 export const canvasWidth = 500;
 export const canvasHeight = 500;
 export const cooldown = 60 * 1000;
+export const tokenExpirationSec = 300;
 
 export const isCloudflare = navigator.userAgent == "Cloudflare-Workers";
 export const clientEnv = Object.fromEntries(
@@ -23,13 +24,25 @@ export function colorToNumber(x: string) {
     return parseInt(x.slice(1), 16);
 }
 
-export function createJSONResponse(data: any, status?: number): Response;
-export function createJSONResponse(data: any, init: ResponseInit): Response;
-export function createJSONResponse(data: any, init: ResponseInit | number = 200) {
+export function createJSONResponse(data: { [key: string]: any }, status?: number): Response;
+export function createJSONResponse(data: { [key: string]: any }, init: ResponseInit): Response;
+export function createJSONResponse(message: string, status?: number): Response;
+export function createJSONResponse(message: string, init: ResponseInit): Response;
+export function createJSONResponse(data: { [key: string]: any } | string, init: ResponseInit | number = 200) {
     if (typeof init == "number") {
         init = { status: init };
     }
-    console.log(data);
+    if (typeof data == "string") {
+      data = { message: data };
+    }
+    init.headers ??= {};
+    if (init.headers instanceof Headers) {
+      init.headers.set("Content-Type", "application/json");
+    } else if (init.headers instanceof Array) {
+      init.headers.push(["Content-Type", "application/json"]);
+    } else {
+      init.headers["Content-Type"] = "application/json";
+    }
     return new Response(JSON.stringify(data), init);
 }
 

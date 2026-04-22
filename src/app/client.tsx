@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Konva from 'konva';
 import { Stage, Layer, Image, Rect } from 'react-konva';
-import { canvasHeight, canvasWidth, clamp, ClientEnv, colorToNumber, getCenter, getDistance, numberToColor, Point } from '@/lib/utils';
+import { canvasHeight, canvasWidth, clamp, ClientEnv, colorToNumber, getCenter, getDistance, numberToColor, Point, tokenExpirationSec } from '@/lib/utils';
 import { Database } from '@/lib/supabase.types';
 import { toast, ToastContainer } from 'react-toastify';
 import { createBrowserClient } from '@/lib/supabase.client';
@@ -37,7 +37,19 @@ export default function Client({ env }: { env: ClientEnv }) {
 		const render = () => {
 			widgetId = window.turnstile.render(el, {
 				sitekey: env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!,
-				callback: (token: string) => setToken(token),
+				callback: token => {
+					!async function() {
+						const response = await fetch("/api/verify", {
+							method: "POST",
+							body: JSON.stringify({
+								turnstileToken: token,
+							}),
+						});
+						const data = await response.json() as { token: string };
+						setToken(data.token);
+						setTimeout(() => turnstile.reset(widgetId), (tokenExpirationSec - 10) * 1000);
+					}();
+				},
 			});
 		};
 		if (typeof window.turnstile !== "undefined") {

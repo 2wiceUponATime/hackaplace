@@ -1,6 +1,7 @@
 import { getAuth } from "@/lib/auth";
 import { createServerClient } from "@/lib/supabase";
-import { canvasHeight, canvasWidth, cooldown, createJSONResponse, validateTurnstile } from "@/lib/utils";
+import { canvasHeight, canvasWidth, cooldown, createJSONResponse } from "@/lib/utils";
+import { JsonWebTokenError, JwtPayload, verify } from "jsonwebtoken";
 import z from "zod";
 
 const schema = z.object({
@@ -49,9 +50,7 @@ export async function POST(req: Request) {
                 const waitTime = Math.ceil((cooldown - timeSincePlace) / 1000);
                 await updatePromise;
                 return createJSONResponse(
-                    {
-                        message: `Wait another ${waitTime} seconds before placing`,
-                    },
+                    `Wait another ${waitTime} seconds before placing`,
                     {
                         status: 429,
                         headers: {
@@ -66,13 +65,11 @@ export async function POST(req: Request) {
     }
     const requestTime = new Date();
     const sessionPromise = checkSession();
-    let json;
+    let json: { [key: string]: any };
     try {
         json = await req.json();
     } catch (err) {
-        return createJSONResponse({
-            message: "Malformed or missing JSON",
-        }, 400);
+        return createJSONResponse("Malformed or missing JSON", 400);
     }
     const result = schema.safeParse(json);
     if (!result.success) {
@@ -81,21 +78,20 @@ export async function POST(req: Request) {
             issues: result.error.issues,
         }, 400);
     }
-    const ip =
-        req.headers.get("CF-Connecting-IP") ??
-        req.headers.get("X-Forwarded-For") ??
-        "unknown";
     const data = result.data;
-    const turnstilePromise = validateTurnstile(data.token, ip);
+    let decoded: string | JwtPayload;
+    try {
+        decoded = verify(data.token, process.env.SESSION_TOKEN_SECRET);
+        console.log(decoded);
+    } catch (err) {
+        if (err instanceof JsonWebTokenError) {
+            return createJSONResponse(`JWT error: ${err.message}`, 401);
+        }
+        throw err;
+    }
+    console.log(data);
     const sessionError = await sessionPromise;
     if (sessionError) return sessionError;
-    const turnstileResult = await turnstilePromise;
-    if (!turnstileResult.success) return createJSONResponse({
-        message: "Turnstile validation failed" + (turnstileResult["error-codes"]
-            ? ": " + turnstileResult["error-codes"]!.join(",")
-            : ""
-        ),
-    }, 422);
     updateDatabase().catch(console.error);
     return new Response();
 }
