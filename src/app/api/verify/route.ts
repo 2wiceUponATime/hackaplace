@@ -1,4 +1,4 @@
-import { createJSONResponse, tokenExpirationSec, validateTurnstile } from "@/lib/utils";
+import { createJSONResponse, signAsync, tokenExpirationSec, validateTurnstile } from "@/lib/utils";
 import { sign } from "jsonwebtoken";
 import z from "zod";
 
@@ -8,6 +8,9 @@ const schema = z.object({
 
 export async function POST(req: Request) {
     const requestTimeSec = Math.floor(Date.now() / 1000);
+    const token = signAsync({
+        exp: requestTimeSec + tokenExpirationSec,
+    });
     let json: { [key: string]: any };
     try {
         json = await req.json();
@@ -36,8 +39,6 @@ export async function POST(req: Request) {
         ),
     }, 422);
     return createJSONResponse({
-        token: sign({
-            exp: requestTimeSec + tokenExpirationSec,
-        }, process.env.SESSION_TOKEN_SECRET),
+        token: await token,
     });
 }

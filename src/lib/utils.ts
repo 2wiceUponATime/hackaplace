@@ -1,3 +1,6 @@
+import { JWTPayload } from "better-auth";
+import { sign, verify } from "jsonwebtoken";
+
 export const canvasWidth = 500;
 export const canvasHeight = 500;
 export const cooldown = 60 * 1000;
@@ -101,4 +104,26 @@ export async function validateTurnstile(token: string, remoteip: string) {
     console.error("Turnstile validation error:", error);
     return { success: false, "error-codes": ["internal-error"] } as TurnstileResponse;
   }
+}
+
+export function verifyAsync(token: string) {
+  return new Promise<string | JWTPayload>(res => verify(
+    token,
+    process.env.SESSION_TOKEN_SECRET,
+    (error, decoded?) => {
+      if (error) throw error;
+      res(decoded!);
+    }
+  ));
+}
+
+export function signAsync(payload: string | object | Buffer<ArrayBufferLike>) {
+  return new Promise<string>(res => sign(
+    payload,
+    process.env.SESSION_TOKEN_SECRET,
+    (error, encoded?) => {
+      if (error) throw error;
+      res(encoded!);
+    }
+  ));
 }

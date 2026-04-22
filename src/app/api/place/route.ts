@@ -1,6 +1,6 @@
 import { getAuth } from "@/lib/auth";
 import { createServerClient } from "@/lib/supabase";
-import { canvasHeight, canvasWidth, cooldown, createJSONResponse } from "@/lib/utils";
+import { canvasHeight, canvasWidth, cooldown, createJSONResponse, verifyAsync } from "@/lib/utils";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { JsonWebTokenError, JwtPayload, verify } from "jsonwebtoken";
 import z from "zod";
@@ -14,7 +14,10 @@ const schema = z.object({
 
 export async function POST(req: Request) {
     const supabase = createServerClient();
+    let setUpdatePromise: (value: boolean) => void
+    const updatePromise = new Promise<boolean>(res => setUpdatePromise = res);
     async function updateDatabase() {
+        if (!await updatePromise) return;
         if (data.color == 0xffffff) {
             await supabase
                 .from("pixel")
@@ -64,34 +67,47 @@ export async function POST(req: Request) {
         }
         await updatePromise;
     }
+    async function checkJWT() {
+        try {
+            await verifyAsync(data.token);
+        } catch (err) {
+            if (err instanceof JsonWebTokenError) {
+                return createJSONResponse(`JWT error: ${err.message}`, 401);
+            }
+            throw err;
+        }
+    }
+    const { ctx } = getCloudflareContext();
+    ctx.waitUntil(updateDatabase());
     const requestTime = new Date();
     const sessionPromise = checkSession();
     let json: { [key: string]: any };
     try {
         json = await req.json();
     } catch (err) {
+        setUpdatePromise!(false);
         return createJSONResponse("Malformed or missing JSON", 400);
     }
     const result = schema.safeParse(json);
     if (!result.success) {
+        setUpdatePromise!(false);
         return createJSONResponse({
             message: "Invalid JSON body",
             issues: result.error.issues,
         }, 400);
     }
     const data = result.data;
-    let decoded: string | JwtPayload;
-    try {
-        decoded = verify(data.token, process.env.SESSION_TOKEN_SECRET);
-    } catch (err) {
-        if (err instanceof JsonWebTokenError) {
-            return createJSONResponse(`JWT error: ${err.message}`, 401);
-        }
-        throw err;
-    }
+    const tokenPromise = checkJWT();
     const sessionError = await sessionPromise;
-    if (sessionError) return sessionError;
-    const { ctx } = getCloudflareContext();
-    ctx.waitUntil(updateDatabase());
+    if (sessionError) {
+        setUpdatePromise!(false);
+        return sessionError;
+    }
+    const tokenError = await tokenPromise;
+    if (tokenError) {
+        setUpdatePromise!(false);
+        return tokenError;
+    }
+    setUpdatePromise!(true);
     return new Response();
 }
