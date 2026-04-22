@@ -1,5 +1,3 @@
-"use server";
-
 import { clientEnv } from "@/lib/utils";
 import Client from "./client";
 
