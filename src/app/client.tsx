@@ -167,16 +167,50 @@ export default function Client({ env }: { env: ClientEnv }) {
 	}
 
 	async function handleClick() {
+		function finish() {
+			done = true;
+			if (spinner) spinner.remove();
+		}
+
 		const stage = stageRef.current;
 		const layer = layerRef.current;
 		const color = colorRef.current?.value;
 		if (!(ctx && stage && layer && color)) return;
+		if (!token) {
+			toast("Complete the CAPTCHA before placing pixels");
+		}
 		const pointer = stage.getRelativePointerPosition();
 		if (!pointer) return;
 		const pos = {
 			x: Math.floor(pointer.x),
 			y: Math.floor(pointer.y),
 		}
+		let spinner: Konva.Image;
+		let done = false;
+		Konva.Image.fromURL("/loading.svg", result => {
+			if (done) return;
+			spinner = result;
+			spinner.globalCompositeOperation("difference");
+			spinner.position({
+				x: pos.x + 0.5,
+				y: pos.y + 0.5,
+			});
+			spinner.offset({
+				x: 0.5,
+				y: 0.5,
+			})
+			spinner.size({
+				width: 1,
+				height: 1,
+			});
+			const angularSpeed = 180;
+			const anim = new Konva.Animation(frame => {
+				const angleDiff = (frame.timeDiff * angularSpeed) / 1000;
+				spinner.rotate(angleDiff);
+			}, layer);
+			layer.add(spinner);
+			anim.start();
+		})
 		const response = await fetch("/api/place", {
 			method: "POST",
 			body: JSON.stringify({
@@ -187,16 +221,19 @@ export default function Client({ env }: { env: ClientEnv }) {
 		});
 		if (response.status == 500) {
 			toast("Internal server error");
+			finish();
 			return;
 		}
 		if (response.status != 200) {
 			const data = await response.json() as { message: string };
 			toast(data.message);
+			finish();
 			return;
 		}
 		ctx.fillStyle = color;
 		ctx.fillRect(pos.x, pos.y, 1, 1);
 		layer.batchDraw();
+		finish();
 	}
 	
 	async function handleTap() {

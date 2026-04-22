@@ -26,8 +26,9 @@ export default async function RootLayout({
 	return (
 		<html lang="en">
 			<head>
-				<link rel="icon" href="/favicon.svg" type="image/svg+xml"></link>
+				<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 				<link rel="preconnect" href="https://challenges.cloudflare.com" />
+				<link rel="preload" as="image" href="/loading.svg" />
 			</head>
 			<body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
 				<Header />
