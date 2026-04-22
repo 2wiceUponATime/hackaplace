@@ -83,14 +83,12 @@ export async function POST(req: Request) {
     let decoded: string | JwtPayload;
     try {
         decoded = verify(data.token, process.env.SESSION_TOKEN_SECRET);
-        console.log(decoded);
     } catch (err) {
         if (err instanceof JsonWebTokenError) {
             return createJSONResponse(`JWT error: ${err.message}`, 401);
         }
         throw err;
     }
-    console.log(data);
     const sessionError = await sessionPromise;
     if (sessionError) return sessionError;
     const { ctx } = getCloudflareContext();
