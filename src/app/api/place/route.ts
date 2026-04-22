@@ -14,10 +14,7 @@ const schema = z.object({
 
 export async function POST(req: Request) {
     const supabase = createServerClient();
-    let setUpdatePromise: (value: boolean) => void
-    const updatePromise = new Promise<boolean>(res => setUpdatePromise = res);
     async function updateDatabase() {
-        if (!await updatePromise) return;
         if (data.color == 0xffffff) {
             await supabase
                 .from("pixel")
@@ -85,12 +82,10 @@ export async function POST(req: Request) {
     try {
         json = await req.json();
     } catch (err) {
-        setUpdatePromise!(false);
         return createJSONResponse("Malformed or missing JSON", 400);
     }
     const result = schema.safeParse(json);
     if (!result.success) {
-        setUpdatePromise!(false);
         return createJSONResponse({
             message: "Invalid JSON body",
             issues: result.error.issues,
@@ -99,15 +94,9 @@ export async function POST(req: Request) {
     const data = result.data;
     const tokenPromise = checkJWT();
     const sessionError = await sessionPromise;
-    if (sessionError) {
-        setUpdatePromise!(false);
-        return sessionError;
-    }
+    if (sessionError) return sessionError;
     const tokenError = await tokenPromise;
-    if (tokenError) {
-        setUpdatePromise!(false);
-        return tokenError;
-    }
-    setUpdatePromise!(true);
+    if (tokenError) return tokenError;
+    await updateDatabase();
     return new Response();
 }
