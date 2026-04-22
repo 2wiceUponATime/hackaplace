@@ -74,8 +74,6 @@ export async function POST(req: Request) {
             throw err;
         }
     }
-    const { ctx } = getCloudflareContext();
-    ctx.waitUntil(updateDatabase());
     const requestTime = new Date();
     const sessionPromise = checkSession();
     let json: { [key: string]: any };
@@ -97,6 +95,7 @@ export async function POST(req: Request) {
     if (sessionError) return sessionError;
     const tokenError = await tokenPromise;
     if (tokenError) return tokenError;
-    await updateDatabase();
+    const { ctx } = getCloudflareContext();
+    ctx.waitUntil(updateDatabase());
     return new Response();
 }

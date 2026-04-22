@@ -7,9 +7,9 @@
 		"build": "next build",
 		"start": "next start",
 		"lint": "next lint",
-		"deploy": "pnpx @opennextjs/cloudflare build && pnpx @opennextjs/cloudflare deploy",
-		"upload": "pnpx @opennextjs/cloudflare build && pnpx @opennextjs/cloudflare upload",
-		"preview": "pnpx @opennextjs/cloudflare build && pnpx @opennextjs/cloudflare preview",
+		"deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+		"upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
+		"preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
 		"cf-typegen": "wrangler types --env-interface CloudflareEnv ./cloudflare-env.d.ts",
 		"supabase-typegen": "pnpx supabase gen types typescript --schema public > src/lib/supabase.types.ts"
 	},
