@@ -178,6 +178,7 @@ export default function Client({ env }: { env: ClientEnv }) {
 		if (!(ctx && stage && layer && color)) return;
 		if (!token) {
 			toast("Complete the CAPTCHA before placing pixels");
+			return;
 		}
 		const pointer = stage.getRelativePointerPosition();
 		if (!pointer) return;
