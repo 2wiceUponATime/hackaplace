@@ -29,6 +29,20 @@ export default function Client({ env }: { env: ClientEnv }) {
 	const cursorRef = useRef<Konva.Rect>(null);
 	const colorRef = useRef<HTMLInputElement>(null);
 	const turnstileRef = useRef<HTMLDivElement>(null);
+	const centeredRef = useRef(false);
+
+	useEffect(() => {
+		if (centeredRef.current || !size.width || !size.height) return;
+		const stage = stageRef.current;
+		if (!stage) return;
+		const scale = Math.min(size.width / canvasWidth, size.height / canvasHeight);
+		stage.scale({ x: scale, y: scale });
+		stage.position({
+			x: (size.width - canvasWidth * scale) / 2,
+			y: (size.height - canvasHeight * scale) / 2,
+		});
+		centeredRef.current = true;
+	}, [size]);
 
 	useEffect(() => {
 		const el = turnstileRef.current;
