@@ -7,6 +7,7 @@ import { canvasHeight, canvasWidth, clamp, ClientEnv, colorToNumber, getCenter, 
 import { Database } from '@/lib/supabase.types';
 import { toast, ToastContainer } from 'react-toastify';
 import { createBrowserClient } from '@/lib/supabase.client';
+import { authClient } from '@/lib/auth-client';
 
 Konva.hitOnDragEnabled = true;
 
@@ -30,6 +31,8 @@ export default function Client({ env }: { env: ClientEnv }) {
 	const colorRef = useRef<HTMLInputElement>(null);
 	const turnstileRef = useRef<HTMLDivElement>(null);
 	const centeredRef = useRef(false);
+	const startMessageRef = useRef(false);
+	const session = authClient.useSession();
 
 	useEffect(() => {
 		if (centeredRef.current || !size.width || !size.height) return;
@@ -43,6 +46,14 @@ export default function Client({ env }: { env: ClientEnv }) {
 		});
 		centeredRef.current = true;
 	}, [size]);
+
+	useEffect(() => {
+		if (startMessageRef.current || !session.data) return;
+		startMessageRef.current = true;
+		if (!session.data.user.lastPlaceTime) {
+			toast("Scroll or pinch to zoom in on the canvas and click to place your first pixel");
+		}
+	}, [session]);
 
 	useEffect(() => {
 		const el = turnstileRef.current;
