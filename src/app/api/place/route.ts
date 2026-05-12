@@ -2,7 +2,7 @@ import { getAuth } from "@/lib/auth";
 import { createServerClient } from "@/lib/supabase";
 import { canvasHeight, canvasWidth, cooldown, createJSONResponse, verifyAsync } from "@/lib/utils";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { JsonWebTokenError, JwtPayload, verify } from "jsonwebtoken";
+import { JsonWebTokenError } from "jsonwebtoken";
 import z from "zod";
 
 const schema = z.object({
@@ -14,7 +14,14 @@ const schema = z.object({
 
 export async function POST(req: Request) {
     const supabase = createServerClient();
+    const sessionPromise = getAuth().api.getSession({ headers: req.headers });
     async function updateDatabase() {
+        const promise = sessionPromise.then(session => session && supabase
+            .from("user")
+            .update({
+                lastPlaceTime: requestTime.toISOString(),
+            })
+            .eq("id", session.user.id));
         if (data.color == 0xffffff) {
             await supabase
                 .from("pixel")
@@ -23,6 +30,7 @@ export async function POST(req: Request) {
                     x: data.x,
                     y: data.y,
                 });
+            await promise;
             return;
         }
         await supabase
@@ -32,24 +40,18 @@ export async function POST(req: Request) {
                 y: data.y,
                 color: data.color,
             });
+        await promise;
     }
     async function checkSession() {
-        const session = await getAuth().api.getSession({ headers: req.headers });
+        const session = await sessionPromise;
         if (!session) {
             return createJSONResponse({ message: "Not logged in" }, 401);
         }
         const lastPlaceTime = session.user.lastPlaceTime;
-        const updatePromise = supabase
-            .from("user")
-            .update({
-                lastPlaceTime: requestTime.toISOString(),
-            })
-            .eq("id", session.user.id);
         if (lastPlaceTime && !session.user.unlimitedPlace) {
             const timeSincePlace = requestTime.getTime() - lastPlaceTime.getTime();
             if (timeSincePlace < cooldown) {
                 const waitTime = Math.ceil((cooldown - timeSincePlace) / 1000);
-                await updatePromise;
                 return createJSONResponse(
                     `Wait another ${waitTime} seconds before placing`,
                     {
@@ -62,7 +64,6 @@ export async function POST(req: Request) {
                 );
             }
         }
-        await updatePromise;
     }
     async function checkJWT() {
         try {
@@ -75,7 +76,7 @@ export async function POST(req: Request) {
         }
     }
     const requestTime = new Date();
-    const sessionPromise = checkSession();
+    const checkSessionPromise = checkSession();
     let json: { [key: string]: any };
     try {
         json = await req.json();
@@ -91,7 +92,7 @@ export async function POST(req: Request) {
     }
     const data = result.data;
     const tokenPromise = checkJWT();
-    const sessionError = await sessionPromise;
+    const sessionError = await checkSessionPromise;
     if (sessionError) return sessionError;
     const tokenError = await tokenPromise;
     if (tokenError) return tokenError;
